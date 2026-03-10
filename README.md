@@ -60,6 +60,8 @@ The data is stored in CSV files and served through multiple endpoints designed f
   "Power": 120
 }
 
+---
+
 ## Building from Source
 
 You can build the API yourself using **Docker**.
