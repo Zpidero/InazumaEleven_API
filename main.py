@@ -11,37 +11,37 @@ df_teams = pd.read_csv("teams.csv")
 
 
 class Player(BaseModel):
-    Id: int
-    Imagen: str
-    Nombre: str
-    Apodo: str
-    Juego: str
-    Arquetipo: str
-    Posicion: str
-    Elemento: str
-    Equipo: str
-    Potencia: int
+    ID: int
+    Image: str
+    Name: str
+    Nickname: str
+    Game: str
+    Archetype: str
+    Position: str
+    Element: str
+    Team: str
+    Power: int
     Control: int
-    Tecnica: int
-    Presion: int
-    Fisico: int
-    Agilidad: int
-    Inteligencia: int
+    Technique: int
+    Pressure: int
+    Physical: int
+    Agility: int
+    Intelligence: int
     Total: int
-    Grupo_de_Edad: str
-    Ano_escolar: str
-    Genero: str
-    Rol: str
+    Age_Group: str
+    School_Year: str
+    Gender: str
+    Role: str
 
 class Team(BaseModel):
-    Imagen: str
-    Equipo: str
+    Image: str
+    Team: str
 
 # Endpoints de l'API
 
 @app.get("/")
 def home():
-    return {"message": "La Api funcona"}
+    return {"message": "The Inazuma Eleven VR API is running correctly"}
 
 @app.get("/all")
 def get_all():
@@ -52,12 +52,12 @@ def get_all():
 
 @app.get("/players")    
 def get_all_players():
-    return as_json(df_players["Nombre"])
+    return as_json(df_players["Name"])
 
 @app.get("/players/{name}")
 def get_player_by_name(name: str):
     nrml_name = name.title()
-    player_rows = df_players[df_players["Nombre"] == nrml_name]
+    player_rows = df_players[df_players["Name"] == nrml_name]
     if player_rows.empty:
         raise HTTPException(status_code=404, detail=f"Player {nrml_name} not found")
     return player_rows.to_dict(orient="records")  # devuelve una lista de diccionarios
@@ -65,14 +65,14 @@ def get_player_by_name(name: str):
 @app.get("/players/apodo/{nickname}")
 def get_player_by_nickname(nickname: str):
     nrml_nickname = nickname.title()
-    player_rows = df_players[df_players["Apodo"] == nrml_nickname]
+    player_rows = df_players[df_players["Nickname"] == nrml_nickname]
     if player_rows.empty:
-        raise HTTPException(status_code=404, detail=f"El jugador con el apodo {nrml_nickname} no fue encontrado")
+        raise HTTPException(status_code=404, detail=f"Player with nickname {nrml_nickname} not found")
     return player_rows.to_dict(orient="records")
 
 @app.get("/players/juego/{juego}")
 def get_players_by_game(juego: str):
-    players = df_players[df_players["Juego"].str.lower() == juego.lower()]
+    players = df_players[df_players["Game"].str.lower() == juego.lower()]
     if players.empty:
         raise HTTPException(status_code=404, detail=f"No players found for game {juego}")
     return as_json(players)
@@ -88,56 +88,18 @@ def top_players(n: int = 10):
 def add_player(player: Player):
     global df_players
     
-    if player.Id in df_players['Id'].values:
-        raise HTTPException(status_code=400, detail="El jugador con este Id ya existe")
+    if player.ID in df_players['ID'].values:
+        raise HTTPException(status_code=400, detail="The id of the player already exists")
     
     df_players.loc[len(df_players)] = pd.Series(player.dict())
     
-    return {"mensaje": "Jugador agregado correctamente", "jugador": player.dict()}
-
-# @app.post("/players")
-# def add_player(player: Player):
-#     global df_players
-    
-#     # Validar duplicado de Id
-#     if player.Id in df_players['Id'].values:
-#         raise HTTPException(status_code=400, detail="El jugador con este Id ya existe")
-    
-#     # Diccionario de validación
-#     referencias = {
-#         "Juego": df_juegos['Nombre'],
-#         "Arquetipo": df_arquetipos['Nombre'],
-#         "Posicion": df_posiciones['Nombre'],
-#         "Elemento": df_elementos['Nombre'],
-#         "Equipo": df_equipos['Nombre'],
-#         "Grupo_de_Edad": df_grupos_edad['Nombre'],
-#         "Ano_escolar": df_anos_escolares['Nombre'],
-#         "Genero": df_generos['Nombre'],
-#         "Rol": df_roles['Nombre']
-#     }
-    
-#     # Validar campos referenciales
-#     for campo, df_ref in referencias.items():
-#         valor = getattr(player, campo)
-#         if valor not in df_ref.values:
-#             raise HTTPException(
-#                 status_code=400, 
-#                 detail=f"{campo} '{valor}' no existe"
-#             )
-    
-#     # Agregar jugador al DataFrame
-#     df_players.loc[len(df_players)] = pd.Series(player.dict())
-    
-#     # Guardar cambios en CSV
-#     df_players.to_csv("players.csv", index=False)
-    
-#     return {"mensaje": "Jugador agregado correctamente", "jugador": player.dict()}
+    return {"mensaje": "Player added correctly", "player": player.dict()}
 
 # /teams endpoints
 # gets de teams
 @app.get("/teams/")
 def get_all_teams():
-    teams = df_teams["Equipo"].unique().tolist()
+    teams = df_teams["Team"].unique().tolist()
     return as_json(teams)
 
 
@@ -147,21 +109,21 @@ def get_team_info(team_name: str):
     team_name_norm = team_name.lower()
     
     # Buscamos el equipo en df_teams
-    team_row = df_teams[df_teams["Equipo"].str.lower() == team_name_norm]
+    team_row = df_teams[df_teams["Team"].str.lower() == team_name_norm]
     
     if team_row.empty:
-        raise HTTPException(status_code=404, detail=f"Equipo '{team_name}' no encontrado")
+        raise HTTPException(status_code=404, detail=f"Team '{team_name}' not found")
     
     # Obtenemos la imagen del equipo
-    team_image = team_row.iloc[0]["Imagen"]
+    team_image = team_row.iloc[0]["Image"]
     
     # Obtenemos la lista de jugadores de ese equipo desde df_players
-    players = df_players[df_players["Equipo"].str.lower() == team_name_norm.lower()]["Nombre"].tolist()
+    players = df_players[df_players["Team"].str.lower() == team_name_norm.lower()]["Name"].tolist()
     
     return {
-        "Equipo": team_name_norm.title(),
-        "Imagen": team_image,
-        "Jugadores": players
+        "Team": team_name_norm.title(),
+        "Image": team_image,
+        "Players": players
     }
 
 @app.get("/teams/{team_name}/images")
@@ -170,15 +132,15 @@ def get_team_images(team_name: str):
     team_name_norm = team_name.lower()
     
     # Buscamos el equipo en df_teams
-    team_row = df_teams[df_teams["Equipo"].str.lower() == team_name_norm]
+    team_row = df_teams[df_teams["Team"].str.lower() == team_name_norm]
     
     if team_row.empty:
-        raise HTTPException(status_code=404, detail=f"Equipo '{team_name}' no encontrado")
+        raise HTTPException(status_code=404, detail=f"Team '{team_name}' not found")
     
     # Obtenemos la imagen del equipo
-    team_image = team_row.iloc[0]["Imagen"]
+    team_image = team_row.iloc[0]["Image"]
     
-    return {"Imagen": team_image}
+    return {"Image": team_image}
 
 #post de teams
 
@@ -186,25 +148,120 @@ def get_team_images(team_name: str):
 def add_team(team: Team):
     global df_teams
     
-    if team.Equipo in df_teams["Equipo"].values:
-        raise HTTPException(status_code=400, detail="El equipo ya existe")
+    if team.Team in df_teams["Team"].values:
+        raise HTTPException(status_code=400, detail="The team already exists")
     
     df_teams.loc[len(df_teams)] = pd.Series(team.dict())
     
-    return {"mensaje": "Equipo agregado correctamente", "equipo": team.dict()}
+    return {"mensaje": "Team added correctly", "team": team.dict()}
 
 # /elementos endpoints
 # gets de elementos
 @app.get("/elements/")    
 def get_all_elements():
-    elementos = df_players["Elemento"].unique().tolist()
+    elementos = df_players["Element"].unique().tolist()
     return as_json(elementos)
 
 # /juegos endpoints
 # gets de juegos
-@app.get("/juegos/")
+@app.get("/games/")
 def get_all_games():
-    juegos = df_players["Juego"].unique().tolist()
+    juegos = df_players["Game"].unique().tolist()
     return as_json(juegos)
 
+# /posicions endpoints
+# gets de posiciones
+@app.get("/positions/")
+def get_all_positions():
+    posicion = df_players["Position"].unique().tolist()
+    return as_json(posicion)
 
+# /Edad endpoints
+# gets de posiciones
+@app.get("/ages/")
+def get_all_ages():
+    edad = df_players["Age group"].unique().tolist()
+    return as_json(edad)
+
+# /Genero endpoints
+# gets de generos
+@app.get("/genders/")
+def get_all_genders():
+    genero = df_players["Gender"].unique().tolist()
+    return as_json(genero)
+
+@app.get("/genders/{gender}")
+def get_gender_info(gender: str):
+    # Normalizamos el género para hacer case-insensitive
+    gender_norm = gender.lower()
+    
+    # Filtramos los jugadores por género
+    players = df_players[df_players["Gender"].str.lower() == gender_norm]["Name"].tolist()
+    
+    if not players:
+        raise HTTPException(status_code=404, detail=f"Gender '{gender}' not found")
+    
+    return {"Gender": gender_norm.title(), "Players": players}
+
+# /Rol endpoints
+# gets de roles
+@app.get("/rol/")
+def get_all_roles():
+    rol = df_players["Rol"].unique().tolist()
+    return as_json(rol)
+
+@app.get("/rol/{role}")
+def get_role_info(role: str):
+    # Normalizamos el rol para hacer case-insensitive
+    role_norm = role.lower()
+    
+    # Filtramos los jugadores por rol
+    players = df_players[df_players["Rol"].str.lower() == role_norm]["Name"].tolist()
+    
+    if not players:
+        raise HTTPException(status_code=404, detail=f"Role '{role}' not found")
+    
+    return {"Role": role_norm.title(), "Players": players}
+
+# /Arquetipo endpoints
+# gets de arquetipos
+@app.get("/archetypes/")
+def get_all_archetypes():
+    arquetipo = df_players["Archetype"].unique().tolist()
+    return as_json(arquetipo)
+
+@app.get("/archetypes/{archetype}")
+def get_archetype_info(archetype: str):
+    # Normalizamos el arquetipo para hacer case-insensitive
+    archetype_norm = archetype.lower()
+    
+    # Filtramos los jugadores por arquetipo
+    players = df_players[df_players["Archetype"].str.lower() == archetype_norm]["Name"].tolist()
+    
+    if not players:
+        raise HTTPException(status_code=404, detail=f"Archetype '{archetype}' not found")
+    
+    return {"Archetype": archetype_norm.title(), "Players": players}
+
+
+# /Posicion endpoints
+@app.get("/positions/{position}")
+def get_position_info(position: str):
+    # Normalizamos la posición para hacer case-insensitive
+    position_norm = position.lower()
+    
+    # Filtramos los jugadores por posición
+    players = df_players[df_players["Position"].str.lower() == position_norm]["Name"].tolist()
+    
+    if not players:
+        raise HTTPException(status_code=404, detail=f"Position '{position}' not found")
+    
+    return {"Position": position_norm.title(), "Players": players}
+
+# /Id endpoints
+@app.get("/players/id/{player_id}")
+def get_player_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    return player_rows.to_dict(orient="records")
