@@ -62,7 +62,7 @@ def get_player_by_name(name: str):
         raise HTTPException(status_code=404, detail=f"Player {nrml_name} not found")
     return player_rows.to_dict(orient="records")  # devuelve una lista de diccionarios
 
-@app.get("/players/apodo/{nickname}")
+@app.get("/players/nickname/{nickname}")
 def get_player_by_nickname(nickname: str):
     nrml_nickname = nickname.title()
     player_rows = df_players[df_players["Nickname"] == nrml_nickname]
@@ -76,11 +76,6 @@ def get_players_by_game(juego: str):
     if players.empty:
         raise HTTPException(status_code=404, detail=f"No players found for game {juego}")
     return as_json(players)
-
-@app.get("/players/top/{n}")
-def top_players(n: int = 10):
-    top = df_players.sort_values("Total", ascending=False).head(n)
-    return as_json(top)
 
 #post de jugadors
 
@@ -169,12 +164,26 @@ def get_all_games():
     juegos = df_players["Game"].unique().tolist()
     return as_json(juegos)
 
+
 # /posicions endpoints
 # gets de posiciones
 @app.get("/positions/")
 def get_all_positions():
     posicion = df_players["Position"].unique().tolist()
     return as_json(posicion)
+
+@app.get("/positions/{position}")
+def get_position_info(position: str):
+    # Normalizamos la posición para hacer case-insensitive
+    position_norm = position.lower()
+    
+    # Filtramos los jugadores por posición
+    players = df_players[df_players["Position"].str.lower() == position_norm]["Name"].tolist()
+    
+    if not players:
+        raise HTTPException(status_code=404, detail=f"Position '{position}' not found")
+    
+    return {"Position": position_norm.title(), "Players": players}
 
 # /Edad endpoints
 # gets de posiciones
@@ -183,12 +192,25 @@ def get_all_ages():
     edad = df_players["Age group"].unique().tolist()
     return as_json(edad)
 
+@app.get("/ages/{age_group}")
+def get_age_group_info(age_group: str):
+    # Normalizamos el grupo de edad para hacer case-insensitive
+    age_group_norm = age_group.lower()
+    
+    # Filtramos los jugadores por grupo de edad
+    players = df_players[df_players["Age group"].str.lower() == age_group_norm]["Name"].tolist()
+    
+    if not players:
+        raise HTTPException(status_code=404, detail=f"Age group '{age_group}' not found")
+    
+    return {"Age Group": age_group_norm.title(), "Players": players}
+
 # /Genero endpoints
 # gets de generos
 @app.get("/genders/")
 def get_all_genders():
-    genero = df_players["Gender"].unique().tolist()
-    return as_json(genero)
+    gender = df_players["Gender"].unique().tolist()
+    return as_json(gender)
 
 @app.get("/genders/{gender}")
 def get_gender_info(gender: str):
@@ -205,18 +227,18 @@ def get_gender_info(gender: str):
 
 # /Rol endpoints
 # gets de roles
-@app.get("/rol/")
+@app.get("/role/")
 def get_all_roles():
-    rol = df_players["Rol"].unique().tolist()
-    return as_json(rol)
+    role = df_players["Role"].unique().tolist()
+    return as_json(role)
 
-@app.get("/rol/{role}")
+@app.get("/role/{role}")
 def get_role_info(role: str):
     # Normalizamos el rol para hacer case-insensitive
     role_norm = role.lower()
     
     # Filtramos los jugadores por rol
-    players = df_players[df_players["Rol"].str.lower() == role_norm]["Name"].tolist()
+    players = df_players[df_players["Role"].str.lower() == role_norm]["Name"].tolist()
     
     if not players:
         raise HTTPException(status_code=404, detail=f"Role '{role}' not found")
@@ -265,3 +287,129 @@ def get_player_by_id(player_id: int):
     if player_rows.empty:
         raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
     return player_rows.to_dict(orient="records")
+
+@app.get("/players/id/{player_id}/archetype")
+def get_player_archetype_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    archetype = player_rows.iloc[0]["Archetype"]
+    return {"ID": player_id, "Archetype": archetype}
+
+@app.get("/players/id/{player_id}/position")
+def get_player_position_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    position = player_rows.iloc[0]["Position"]
+    return {"ID": player_id, "Position": position}
+
+@app.get("/players/id/{player_id}/element")
+def get_player_element_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    element = player_rows.iloc[0]["Element"]
+    return {"ID": player_id, "Element": element}
+
+@app.get("/players/id/{player_id}/team")
+def get_player_team_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    team = player_rows.iloc[0]["Team"]
+    return {"ID": player_id, "Team": team}
+
+@app.get("/players/id/{player_id}/game")
+def get_player_game_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    game = player_rows.iloc[0]["Game"]
+    return {"ID": player_id, "Game": game}
+
+@app.get("/players/id/{player_id}/nickname")
+def get_player_nickname_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    nickname = player_rows.iloc[0]["Nickname"]
+    return {"ID": player_id, "Nickname": nickname}
+
+@app.get("/players/id/{player_id}/name")
+def get_player_name_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    name = player_rows.iloc[0]["Name"]
+    return {"ID": player_id, "Name": name}
+
+@app.get("/players/id/{player_id}/image")
+def get_player_image_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    image = player_rows.iloc[0]["Image"]
+    return {"ID": player_id, "Image": image}
+
+@app.get("/players/id/{player_id}/age_group")
+def get_player_age_group_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    age_group = player_rows.iloc[0]["Age group"]
+    return {"ID": player_id, "Age Group": age_group}
+
+@app.get("/players/id/{player_id}/school_year")
+def get_player_school_year_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    school_year = player_rows.iloc[0]["School year"]
+    return {"ID": player_id, "School year": school_year}
+
+@app.get("/players/id/{player_id}/gender")
+def get_player_gender_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    gender = player_rows.iloc[0]["Gender"]
+    return {"ID": player_id, "Gender": gender}
+
+@app.get("/players/id/{player_id}/role")
+def get_player_role_by_id(player_id: int):
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    role = player_rows.iloc[0]["Role"]
+    return {"ID": player_id, "Role": role}
+
+# Stats endpoints by name
+@app.get("/players/{name}/{stat}")
+def get_player_stat(name: str, stat: str):
+    valid_stats = ["power", "control", "technique", "pressure", "physical", "agility", "intelligence", "total"]
+    if stat.lower() not in valid_stats:
+        raise HTTPException(status_code=400, detail=f"Invalid stat {stat}")
+    
+    player_rows = df_players[df_players["Name"].str.lower() == name.lower()]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player {name.title()} not found")
+    
+    value = int(player_rows.iloc[0][stat.title()])  # <-- conversión a int
+    return {"Name": name.title(), stat.title(): value}
+
+# Stats endpoints by ID
+
+@app.get("/players/id/{player_id}/{stat}")
+def get_player_stat_by_id(player_id: int, stat: str):
+    valid_stats = ["power", "control", "technique", "pressure", "physical", "agility", "intelligence", "total"]
+    if stat.lower() not in valid_stats:
+        raise HTTPException(status_code=400, detail=f"Invalid stat {stat}")
+    
+    player_rows = df_players[df_players["ID"] == player_id]
+    if player_rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player with id {player_id} not found")
+    
+    value = int(player_rows.iloc[0][stat.title()])  # <-- conversión a int
+    return {"ID": player_id, stat.title(): value}
+
