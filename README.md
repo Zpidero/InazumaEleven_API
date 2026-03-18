@@ -1,7 +1,11 @@
+<div align="center">
 
-<img src="https://static.zerochan.net/Inazuma.Eleven.full.2092502.jpg" />
+<img src="https://media3.giphy.com/media/v1.Y2lkPTZjMDliOTUyNGUxM3AyeDl4YndwaGd6anQ4bnlqamowNHk0NmJ1bm4wYjdzMWxqaSZlcD12MV9zdGlja2Vyc19zZWFyY2gmY3Q9cw/lxxMaTkD3HbespR1aJ/source.gif" width="150" px />
 
 # Inazuma Eleven VR API
+</div>
+
+
 
 The **Inazuma Eleven VR API** is a REST API built with **FastAPI** that provides structured data about players and teams from **Inazuma Eleven: Victory Road**.
 
