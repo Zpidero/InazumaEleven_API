@@ -2,7 +2,7 @@ name: Update player data
 
 on:
   schedule:
-    - cron: '0 0 1 * *' 
+    - cron: '0 0 1 * *'
   workflow_dispatch:
   push:
     branches:
@@ -11,6 +11,8 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v3
 
@@ -20,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Run scraper
+        run: uv run python update.py
+
       - name: Commit and push updated data
         run: |
           git config user.name "github-actions"
@@ -27,4 +32,3 @@ jobs:
           git add data/players.csv data/teams.csv
           git diff --staged --quiet || git commit -m "Auto update player data"
           git push
-#kdhrhrhhrdfgh
