@@ -27,3 +27,4 @@ jobs:
           git add data/players.csv data/teams.csv
           git diff --staged --quiet || git commit -m "Auto update player data"
           git push
+#kdhrhrhhrdfgh
