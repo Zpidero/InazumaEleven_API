@@ -1,6 +1,7 @@
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+import re
 import time
 
 # ── Google Sheet ──────────────────────────────────────────────
@@ -55,6 +56,16 @@ ROLE_MAP = {
     "Entrenador":  "Coach",
     "Manager":     "Manager",
 }
+# Archetypes come from the community sheet in Spanish
+ARCHETYPE_MAP = {
+    "Justicia":     "Justice",
+    "Contraataque": "Counterattack",
+    "Afinidad":     "Affinity",
+    "Brecha":       "Breakthrough",
+    "Juego Sucio":  "Rough Play",
+    "Tensión":      "Tension",
+    "Unknown":      "Unknown",
+}
 AGE_MAP = {
     "Secundaria": "Middle School",
     "Adulto":     "Adult",
@@ -76,10 +87,22 @@ TEAM_NAME_MAP = {
 }
 
 # ── Scrapers ──────────────────────────────────────────────────
+def last_page(url: str) -> int:
+    """Read the pagination of a zukan list page instead of hard-coding the page count."""
+    try:
+        html = requests.get(url, timeout=10).text
+        pages = [int(n) for n in re.findall(r"[?&]page=(\d+)", html)]
+        return max(pages) if pages else 1
+    except Exception as e:
+        print(f"  ⚠️  Couldn't read page count for {url}: {e}")
+        return 1
+
+
 def scrape_images() -> dict:
     """Returns {(name, game, age): image_url} from chara_param"""
     data = {}
-    for page in range(1, 110):
+    total = last_page("https://zukan.inazuma.jp/en/chara_param/")
+    for page in range(1, total + 1):
         try:
             resp = requests.get(f"https://zukan.inazuma.jp/en/chara_param/?page={page}", timeout=10)
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -101,7 +124,7 @@ def scrape_images() -> dict:
                         age = dd.text.strip()
                 if name and game:
                     data[(name, game, age)] = image
-            print(f"Image page {page}/109 — {len(data)} found")
+            print(f"Image page {page}/{total} — {len(data)} found")
             time.sleep(0.5)
         except Exception as e:
             print(f"  ⚠️  Page {page} failed: {e}")
@@ -111,7 +134,8 @@ def scrape_images() -> dict:
 def scrape_teams() -> dict:
     """Returns {(name, game, age): team} from chara_list"""
     teams = {}
-    for page in range(1, 110): #change if there are more than 109 pages in the future
+    total = last_page("https://zukan.inazuma.jp/en/chara_list/")
+    for page in range(1, total + 1):
         try:
             resp = requests.get(f"https://zukan.inazuma.jp/en/chara_list/?page={page}", timeout=10)
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -126,7 +150,7 @@ def scrape_teams() -> dict:
                 team = str(br.previous_sibling).strip() if br and br.previous_sibling else cols[11].text.strip()
                 if name and game:
                     teams[(name, game, age)] = team
-            print(f"Team page {page}/109 — {len(teams)} found")
+            print(f"Team page {page}/{total} — {len(teams)} found")
             time.sleep(0.5)
         except Exception as e:
             print(f"  ⚠️  Page {page} failed: {e}")
@@ -136,7 +160,8 @@ def scrape_teams() -> dict:
 def scrape_team_emblems() -> dict:
     """Returns {team_name: image_url} from zukan emblem pages"""
     emblems = {}
-    for page in range(1, 6): #change if there are more than 5 pages in the future
+    total = last_page("https://zukan.inazuma.jp/en/item/emblem/")
+    for page in range(1, total + 1):
         try:
             resp = requests.get(f"https://zukan.inazuma.jp/en/item/emblem/?page={page}", timeout=10)
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -145,7 +170,7 @@ def scrape_team_emblems() -> dict:
                 if not img or not img.get("src", "").startswith("https://dxi4wb638ujep.cloudfront.net/1/k"):
                     continue
                 emblems[img["alt"].strip()] = img["src"].strip()
-            print(f"Emblem page {page}/5 — {len(emblems)} found")
+            print(f"Emblem page {page}/{total} — {len(emblems)} found")
             time.sleep(0.5)
         except Exception as e:
             print(f"  ⚠️  Page {page} failed: {e}")
@@ -158,9 +183,12 @@ def build_players_df() -> pd.DataFrame:
     df = pd.read_csv(SHEET_URL, header=1)
     df = df.rename(columns=COLUMN_MAP)
     df = df[
+        df["Name"].notna() &
         (df["Game"] != "???") &
         (df["Position"] != "?")
     ].reset_index(drop=True)
+    df["ID"] = pd.to_numeric(df["ID"], errors="coerce").astype("Int64")
+    df["Archetype"] = df["Archetype"].map(ARCHETYPE_MAP).fillna(df["Archetype"])
 
     df["Element"]   = df["Element"].map(ELEMENT_MAP).fillna(df["Element"])
     df["Position"]  = df["Position"].map(POSITION_MAP).fillna(df["Position"])
