@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.data import df_players
+from app.games import GAMES, code, resolve
 from app.routers.utils import matches, unique_values
 
 router = APIRouter(tags=["filters"])
@@ -24,7 +25,19 @@ def get_all_elements():
 
 @router.get("/games/")
 def get_all_games():
-    return _list("Game", "Games")
+    """Games with their short codes (usable as ?game=VR in other endpoints)."""
+    return {"Games": [{"Code": c, "Game": t} for c, t in GAMES.items()]}
+
+
+@router.get("/games/{game}")
+def get_game_info(game: str):
+    """Players and teams of one game: /games/VR, /games/ie2 …"""
+    title = resolve(game)
+    if not title:
+        raise HTTPException(status_code=404, detail=f"Unknown game '{game}'. Use a code: {', '.join(GAMES)}")
+    rows = df_players[df_players["Game"] == title]
+    teams = sorted({t for ts in rows["Teams"] for t in (ts or [])}, key=str.casefold)
+    return {"Game": title, "Code": code(title), "Players": rows["Name"].tolist(), "Teams": teams}
 
 
 @router.get("/positions/")

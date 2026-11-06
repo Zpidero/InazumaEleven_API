@@ -1,10 +1,9 @@
-from app.scraper import build_players_df, save_players_csv, build_teams_csv
+"""Refresh data/players.json, data/techniques.json and data/teams.json.
+
+    uv run python update.py
+"""
+from app.build import run
 
 if __name__ == "__main__":
-    print("⚡Starting update⚡\n")
-    df = build_players_df()
-    save_players_csv(df)
-
-    teams_df = build_teams_csv(df)
-    teams_df.to_csv("data/teams.csv", index=False)
-    print("💾 Saved players and teams data")
+    print("⚡ Starting update ⚡\n")
+    run()

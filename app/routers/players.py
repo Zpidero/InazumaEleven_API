@@ -1,4 +1,8 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
+
+from app.games import GAMES, resolve
 
 from app.data import df_players, STAT_COLUMNS
 from app.routers.utils import clean_value, matches, records
@@ -10,6 +14,8 @@ FIELDS = {
     "name": "Name", "nickname": "Nickname", "image": "Image", "game": "Game",
     "archetype": "Archetype", "position": "Position", "element": "Element", "team": "Team",
     "age_group": "Age group", "school_year": "School year", "gender": "Gender", "role": "Role",
+    "teams": "Teams", "description": "Description", "viewer": "Viewer", "obtain": "Obtain",
+    "techniques": "Techniques", "keshin": "Keshin", "legendary": "Legendary",
     **{s.lower(): s for s in STAT_COLUMNS},
 }
 STATS = {s.lower(): s for s in STAT_COLUMNS}
@@ -53,12 +59,33 @@ def get_player_field(player_id: int, field: str):
     return {"ID": player_id, key: clean_value(row[col])}
 
 
+def _in_game(rows, game: Optional[str]):
+    if not game:
+        return rows
+    title = resolve(game)
+    if not title:
+        raise HTTPException(status_code=400, detail=f"Unknown game '{game}'. Use a code: {', '.join(GAMES)}")
+    return rows[rows["Game"] == title]
+
+
 @router.get("/{name}")
-def get_player_by_name(name: str):
-    rows = df_players[matches(df_players["Name"], name)]
+def get_player_by_name(name: str, game: Optional[str] = None):
+    """Every version of a player (one per game). ?game=VR for one game only."""
+    rows = _in_game(df_players[matches(df_players["Name"], name)], game)
     if rows.empty:
         raise HTTPException(status_code=404, detail=f"Player {name} not found")
     return records(rows)
+
+
+@router.get("/{name}/techniques")
+def get_player_techniques_by_name(name: str, game: Optional[str] = None):
+    """Techniques a player learns in Victory Road (level / Story, form, awakened). ?game= to pick a version."""
+    rows = _in_game(df_players[matches(df_players["Name"], name)], game)
+    if rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player {name} not found")
+    return [{"ID": clean_value(r["ID"]), "Name": r["Name"], "Game": r["Game"], "Game code": r["Game code"],
+             "Keshin": clean_value(r["Keshin"]), "Techniques": r["Techniques"] or []}
+            for _, r in rows.iterrows()]
 
 
 @router.get("/{name}/{stat}")
