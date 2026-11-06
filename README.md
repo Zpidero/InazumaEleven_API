@@ -9,7 +9,7 @@ A REST API built with **FastAPI** that provides structured data about players an
 
 Data is automatically scraped and updated monthly from [zukan.inazuma.jp](https://zukan.inazuma.jp/en/) and the official [player spreadsheet](https://docs.google.com/spreadsheets/d/1HW-weeq79GRnoZNcfbj7bINVaDv55WVl/edit?usp=drivesdk&ouid=111840052144453485416&rtpof=true&sd=true) .
 
-🌐 **Live API:** https://inazumaeleven-api.onrender.com
+🌐 **Live API:** https://inazumaeleven-api.vercel.app  ·  interactive docs: https://inazumaeleven-api.vercel.app/docs
 
 ---
 
@@ -168,6 +168,6 @@ API will be available at `http://localhost:8000`.
 - **BeautifulSoup4** — scraping
 - **uv** — package management
 - **Docker**
-- **Render** — hosting
+- **Vercel** — hosting (serverless, always reachable)
 - **GitHub Actions** — automated monthly updates
 
