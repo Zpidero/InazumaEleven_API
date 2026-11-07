@@ -70,7 +70,7 @@ def items_by_stat(stat: str, category: Optional[str] = None):
 @router.get("/{name}")
 def get_item(name: str):
     n = name.strip().casefold()
-    hits = [i for i in items if i["Name"].casefold() == n]
+    hits = [i for i in items if i["Name"].casefold() == n or (i["Japanese name"] or "").casefold() == n]
     if not hits:
         raise HTTPException(status_code=404, detail=f"Item '{name}' not found")
     return hits[0] if len(hits) == 1 else hits

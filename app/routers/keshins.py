@@ -56,7 +56,7 @@ def list_keshins(type: Optional[str] = None, element: Optional[str] = None, game
 
 @router.get("/all")
 def all_keshins():
-    """Every keshin with type, element, special move, skill, KP/attack per game, image and users."""
+    """Every keshin with title, type, element, hissatsu, skill, KP/attack per game, image and users."""
     return [_with_users(k) for k in keshins]
 
 
@@ -95,7 +95,7 @@ def keshins_by_game(game: str):
 
 @router.get("/{name}")
 def get_keshin(name: str):
-    """One keshin by its English name ('Heavenly Horse Arch Pegasus') or wiki title ('Majin Pegasus Arc')."""
+    """One keshin by name ('Majin Pegasus Arc', 'Pegasus Arc', 'Taiyou Shin Apollo', 'Apollo' …)."""
     k = keshin_by_name.get(name.strip().casefold())
     if not k:
         raise HTTPException(status_code=404, detail=f"Keshin '{name}' not found")

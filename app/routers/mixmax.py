@@ -33,7 +33,7 @@ def all_mixmax():
 
 @router.get("/mixmax/{name}")
 def get_mixmax(name: str):
-    """One aura by its name or the aura character's name: 'Soji Okita', 'Joan of Arc' (wiki titles like 'Okita Souji' work too) …"""
+    """One aura by its name or the aura character's name: 'Okita Souji', 'Soji Okita', 'Joan of Arc' …"""
     return _with_users(_lookup(name))
 
 

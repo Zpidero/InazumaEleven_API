@@ -3,7 +3,7 @@ from app.routers import players, teams, filters, techniques, keshins, tactics, m
 
 app = FastAPI(
     title="Inazuma Eleven VR API",
-    description="Players, teams, special moves, keshins, totems, Mix Max, tactics, formations, equipment and staff of Inazuma Eleven: Victory Road. "
+    description="Players, teams and special moves (hissatsu) of Inazuma Eleven: Victory Road. "
                 "Data: zukan.inazuma.jp (official), the Inazuma Eleven Wiki (CC BY-SA) and the CalculadoraVR sheet.",
 )
 

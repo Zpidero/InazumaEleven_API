@@ -5,7 +5,7 @@
 # Inazuma Eleven VR API
 </div>
 
-A REST API built with **FastAPI** with every player, team and special move of **Inazuma Eleven: Victory Road** — including the characters from all previous games that appear in it.
+A REST API built with **FastAPI** with every player, team and special move (hissatsu) of **Inazuma Eleven: Victory Road** — including the characters from all previous games that appear in it.
 
 🌐 **Live API:** https://inazumaeleven-api.vercel.app  ·  interactive docs: https://inazumaeleven-api.vercel.app/docs
 
@@ -16,7 +16,7 @@ A REST API built with **FastAPI** with every player, team and special move of **
 - **5,460 players** from the official database: official number, image, 3D viewer link, description, position, element, gender, role, age group, school year, **all their teams**, stats and **how to obtain them**
 - **Special moves each player learns** in Victory Road — unlock level (or Story), form (Normal / Hero / Basara / BB Stadium…), awakened moves, and Keshin
 - **1,000+ techniques** with type, element, power and cost (+ Basara power/cost), official description, image and video, and **who learns each one**
-- **98 Keshins** (GO, Chrono Stone, Galaxy, Victory Road) with type, element, special move, skill, KP and attack per game, image and the players who summon them
+- **98 Keshins** (GO, Chrono Stone, Galaxy, Victory Road) with title, type, element, hissatsu, skill, KP and attack per game, image and the players who summon them
 - **Mix Max**: every aura, the character it comes from and which players can Mix Max with it (level, form)
 - **69 tactics** (type, power, cost, description, effect, geoglyph effect, icon) and the **8 official formations** with pitch positions
 - **Equipment**: 640+ boots, bracelets, pendants, specials and kits with image, stat bonuses and how to obtain them
@@ -33,7 +33,7 @@ A REST API built with **FastAPI** with every player, team and special move of **
 | Which techniques each player learns, technique power & cost | [Inazuma Eleven Wiki](https://inazuma-eleven.fandom.com) (Fandom), licensed [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) — `Module:PlayerData/*`, `Module:WazaData`, `Module:KeshinData`, `Module:TacticsData`, `Module:FormationData`, `Module:SoulData`, item list |
 | Archetypes, Legendary-rarity stats | [CalculadoraVR spreadsheet](https://docs.google.com/spreadsheets/d/1HW-weeq79GRnoZNcfbj7bINVaDv55WVl) by @nimofe200 (archetypes by @King.Javii) |
 
-All names are the official English ones: from zukan when it lists the item, otherwise the English (dub) name recorded on the wiki. The wiki's original (romaji) title is kept as `Wiki name` and also works for lookups.
+Technique names are the official English names when zukan lists the move; otherwise (mostly Keshin, Souls and Mix Max) the wiki's name is used.
 
 ---
 
@@ -99,20 +99,20 @@ InazumaElevenVR_API/
 |--------|----------|-------------|
 | GET | `/keshins` | All keshin names (`?type=kick&element=wind&game=VR`, `?details=true`) |
 | GET | `/keshins/all` | Every keshin with full data and its users |
-| GET | `/keshins/{name}` | One keshin, by English name or wiki title (`heavenly horse arch pegasus` or `majin pegasus arc`) |
+| GET | `/keshins/{name}` | One keshin, by full name or short name (`majin pegasus arc` or `pegasus arc`) |
 | GET | `/keshins/type/{type}` | By type: `kick`/`shoot`, `dribble`, `block`/`defense`, `catch`/`keeper` |
 | GET | `/keshins/element/{element}` | By element (combine with `?type=` / `?game=`) |
 | GET | `/keshins/game/{game}` | Keshins of one game: `GO`, `CS`, `GX` or `VR` (VR = summoned by a Victory Road player) |
 | GET | `/keshins/types` | Types with counts |
 
-`KP` and `Attack` are lists of 6 values per game (one per keshin level); `Element`, `Special move` and `Skill` are a single value or a `{game: value}` object when they change between games.
+`KP` and `Attack` are lists of 6 values per game (one per keshin level); `Element`, `Hissatsu` and `Skill` are a single value or a `{game: value}` object when they change between games.
 
 ### Mix Max
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/mixmax` | All auras (`?details=true` for full data) |
 | GET | `/mixmax/all` | Every aura + aura character + players who can use it |
-| GET | `/mixmax/{name}` | One aura, by aura name or wiki title (`soji okita` or `okita souji`) |
+| GET | `/mixmax/{name}` | One aura, by aura name or character name (`okita souji` or `soji okita`) |
 | GET | `/players/{name}/mixmax` | Who a player Mix Maxes with, and whether they are an aura for others |
 
 ### Tactics & Formations
