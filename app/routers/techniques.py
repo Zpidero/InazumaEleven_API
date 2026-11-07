@@ -14,7 +14,8 @@ TYPE_ALIASES = {
     "catch": "Catch", "catches": "Catch", "keeper": "Catch", "goalkeeper": "Catch", "gk": "Catch",
     "skill": "Skill", "skills": "Skill", "passive": "Skill",
     "keshin": "Keshin", "avatar": "Keshin",
-    "mixmax": "Mix Max", "mix max": "Mix Max", "soul": "Soul", "souls": "Soul",
+    "mixmax": "Mix Max", "mix max": "Mix Max", "totem": "Totem", "totems": "Totem", "soul": "Totem", "souls": "Totem",
+    "awakening": "Awakening Power", "awakening power": "Awakening Power",
 }
 
 

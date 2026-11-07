@@ -81,3 +81,21 @@ for p in df_players.itertuples(index=False):
                 "ID": None if pd.isna(p.ID) else int(p.ID), "Name": p.Name, "Game": p.Game,
                 "Level": m["Level"], "Form": m["Form"], "Awakened": m["Awakened"],
             })
+
+items = _read_optional("items")
+totems = _read_optional("totems")
+
+
+def _move_users(move_type: str):
+    users = defaultdict(list)
+    for p in df_players.itertuples(index=False):
+        for m in p.Techniques or []:
+            if m["Type"] == move_type:
+                users[m["Name"].casefold()].append({
+                    "ID": None if pd.isna(p.ID) else int(p.ID), "Name": p.Name, "Game": p.Game,
+                    "Level": m["Level"], "Form": m["Form"], "Awakened": m["Awakened"],
+                })
+    return users
+
+
+totem_users = _move_users("Totem")

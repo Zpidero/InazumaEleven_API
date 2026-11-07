@@ -293,6 +293,47 @@ def build_mixmax(players, wiki_tech, name_of, redirects):
     return sorted(out, key=lambda m: m["Aura"].casefold())
 
 
+def build_totems(raw_souls, wiki_tech, name_of, images, redirects):
+    """Totems (called Souls in Japanese / on the wiki) used in Victory Road movesets.
+    Stats come from the wiki's SoulData (Inazuma Eleven GO Galaxy); Victory Road values aren't published."""
+    by_page = {s["page"]: s for s in raw_souls.values()}
+    out = []
+    for key, w in wiki_tech.items():
+        if w["type"] != "Totem" or key not in name_of:
+            continue
+        s = by_page.get(w["page"], {})
+        other = sorted(n for n in redirects.get(w["page"], {w["page"]}) if n != name_of[key] and "(" not in n)
+        out.append({
+            "Name": name_of[key], "Wiki name": w["page"], "Other names": other or None,
+            "Type": wiki.WAZA_TYPES.get(s.get("sType"), s.get("sType")), "Element": w["element"] or s.get("element"),
+            "Image": images.get(s.get("file")),
+            "Galaxy stats": {"Power": s.get("power"), "Cost": s.get("cost"), "Damage": s.get("damage"),
+                             "SP": s.get("SP"), "Strike": _humanize(s["strike"]) if s.get("strike") else None} if s else None,
+        })
+    return sorted(out, key=lambda t: t["Name"].casefold())
+
+
+def build_items(official, wiki_items):
+    """Official equipment list (zukan) + stat bonuses, price and how to obtain (wiki)."""
+    extra = {(i["Category"], i["Name"].casefold()): i for i in wiki_items}
+    out, seen = [], set()
+    for o in official:
+        k = (o["Category"], o["Name"].casefold())
+        if k in seen:
+            continue
+        seen.add(k)
+        w = extra.get(k, {})
+        out.append({"Name": o["Name"], "Category": o["Category"], "Image": o["Image"],
+                    "Stats": w.get("Stats"), "Effect": w.get("Effect"), "Price": w.get("Price"),
+                    "How to obtain": w.get("How to obtain"), "Japanese name": w.get("Japanese name")})
+    for k, w in extra.items():                      # in the wiki but not (yet) in the official list
+        if k not in seen:
+            out.append({"Name": w["Name"], "Category": w["Category"], "Image": None, "Stats": w["Stats"],
+                        "Effect": w["Effect"], "Price": w["Price"], "How to obtain": w["How to obtain"],
+                        "Japanese name": w["Japanese name"]})
+    return out
+
+
 def build_teams(players, emblems):
     alias = {
         "Raimon First Squad": "Revolutionary Raimon", "Baseball Club Team": "South Cirrus Baseball Club",
@@ -347,12 +388,21 @@ def run():
     mm_pages = sorted({w["page"] for w in wiki_tech.values() if w["type"] == "Mix Max" and w["page"]})
     mixmax = build_mixmax(players, wiki_tech, name_of, wiki.redirects(mm_pages))
 
+    print("⚡ totems")
+    souls = wiki.load_table("SoulData", "SOULS")
+    soul_pages = sorted({w["page"] for w in wiki_tech.values() if w["type"] == "Totem" and w["page"]})
+    totems = build_totems(souls, wiki_tech, name_of, wiki.image_urls([s.get("file") for s in souls.values()]),
+                          wiki.redirects(soul_pages))
+
+    print("⚡ items")
+    items = build_items(zukan.scrape_items(), wiki.load_items())
+
     DATA.mkdir(exist_ok=True)
     for name, obj in [("players", players), ("techniques", techniques), ("teams", teams), ("keshins", keshins),
-                      ("tactics", tactics), ("formations", formations), ("mixmax", mixmax)]:
+                      ("tactics", tactics), ("formations", formations), ("mixmax", mixmax), ("items", items), ("totems", totems)]:
         (DATA / f"{name}.json").write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")))
     with_moves = sum(1 for p in players if p["Techniques"])
     print(f"\n💾 {len(players)} players ({with_moves} with techniques), {len(techniques)} techniques, {len(teams)} teams, {len(keshins)} keshins, "
-          f"{len(tactics)} tactics, {len(formations)} formations, {len(mixmax)} mix max auras")
+          f"{len(tactics)} tactics, {len(formations)} formations, {len(mixmax)} mix max auras, {len(items)} items, {len(totems)} totems")
     print(f"   wiki movesets without an English match: {len(unmatched)}")
-    return players, techniques, teams, keshins, tactics, formations, mixmax
+    return players, techniques, teams, keshins, tactics, formations, mixmax, items, totems

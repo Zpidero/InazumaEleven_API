@@ -187,3 +187,36 @@ def scrape_formations() -> list[dict]:
         if name and spots:
             out.append({"Name": name, "Positions": spots})
     return out
+
+
+def _item_cards(url: str) -> list[dict]:
+    """Every item card (name + image) of a zukan item list, all pages, 200 per page."""
+    out, page = [], 1
+    while True:
+        soup = _get(f"{url}&page={page}" if "?" in url else f"{url}?page={page}")
+        for li in soup.select("ul.itemListBox > li"):
+            img = li.select_one("img[alt]")
+            name = _text(li.select_one("p.name")) or (img["alt"].strip() if img else "")
+            if name and name != "???":                       # ??? = not revealed yet
+                out.append({"Name": name, "Image": img["src"].strip() if img else None})
+        print(f"  {url.split('/en/')[1][:40]} page {page}/{_last_page(soup)}")
+        if page >= _last_page(soup):
+            return out
+        page += 1
+        time.sleep(DELAY)
+
+
+def scrape_items() -> list[dict]:
+    """Equipment (boots, bracelets, pendants, specials) and kits, with their category."""
+    menu = _get(f"{BASE}/item/emblem/")
+    links = {}
+    for cls, cat in [("shoes", "Boots"), ("misanga", "Bracelet"), ("pendant", "Pendant"), ("special", "Special")]:
+        a = menu.select_one(f"li.{cls} a[href*='item/equip']")
+        if a:
+            links[cat] = "https://zukan.inazuma.jp" + a["href"].replace("&amp;", "&")
+    links["Kit"] = f"{BASE}/item/fashion/"
+    items = []
+    for cat, url in links.items():
+        sep = "&" if "?" in url else "?"
+        items += [{**c, "Category": cat} for c in _item_cards(f"{url}{sep}per_page=200")]
+    return items

@@ -19,6 +19,9 @@ A REST API built with **FastAPI** with every player, team and special move (hiss
 - **98 Keshins** (GO, Chrono Stone, Galaxy, Victory Road) with title, type, element, hissatsu, skill, KP and attack per game, image and the players who summon them
 - **Mix Max**: every aura, the character it comes from and which players can Mix Max with it (level, form)
 - **69 tactics** (type, power, cost, description, effect, geoglyph effect, icon) and the **8 official formations** with pitch positions
+- **Equipment**: 640+ boots, bracelets, pendants, specials and kits with image, stat bonuses and how to obtain them
+- **Totems** (Souls in Japanese) with type, element, image and the players who have them
+- **Coaches, managers and coordinators**
 - Archetype and stats at **Legendary** rarity
 - Case-insensitive search, filters by position, element, gender, role, age group, archetype, technique type and element
 - Data refreshes automatically on the 1st of every month (GitHub Actions)
@@ -26,8 +29,8 @@ A REST API built with **FastAPI** with every player, team and special move (hiss
 ### Data sources
 | Data | Source |
 |------|--------|
-| Players, stats (Lv50), images, teams, how to obtain, technique descriptions & media, emblems, formations | [zukan.inazuma.jp](https://zukan.inazuma.jp/en/) — official Victory Road database |
-| Which techniques each player learns, technique power & cost | [Inazuma Eleven Wiki](https://inazuma-eleven.fandom.com) (Fandom), licensed [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) — `Module:PlayerData/*`, `Module:WazaData`, `Module:KeshinData`, `Module:TacticsData`, `Module:FormationData` |
+| Players, stats (Lv50), images, teams, how to obtain, technique descriptions & media, emblems, formations, equipment & kits | [zukan.inazuma.jp](https://zukan.inazuma.jp/en/) — official Victory Road database |
+| Which techniques each player learns, technique power & cost | [Inazuma Eleven Wiki](https://inazuma-eleven.fandom.com) (Fandom), licensed [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) — `Module:PlayerData/*`, `Module:WazaData`, `Module:KeshinData`, `Module:TacticsData`, `Module:FormationData`, `Module:SoulData`, item list |
 | Archetypes, Legendary-rarity stats | [CalculadoraVR spreadsheet](https://docs.google.com/spreadsheets/d/1HW-weeq79GRnoZNcfbj7bINVaDv55WVl) by @nimofe200 (archetypes by @King.Javii) |
 
 Technique names are the official English names when zukan lists the move; otherwise (mostly Keshin, Souls and Mix Max) the wiki's name is used.
@@ -47,7 +50,9 @@ InazumaElevenVR_API/
 │   ├── keshins.json
 │   ├── tactics.json
 │   ├── formations.json
-│   └── mixmax.json
+│   ├── mixmax.json
+│   ├── items.json
+│   └── totems.json
 ├── app/
 │   ├── build.py            # Merges the three sources into data/*.json
 │   ├── data.py             # Loads the data for the API
@@ -84,7 +89,7 @@ InazumaElevenVR_API/
 | GET | `/techniques` | All technique names (`?type=kick&element=fire`, `?details=true`) |
 | GET | `/techniques/all` | Every technique with full data and who learns it |
 | GET | `/techniques/{name}` | One technique + every player who learns it (level, form) |
-| GET | `/techniques/type/{type}` | By type: `kick`/`shoot`, `dribble`, `block`/`defense`, `catch`/`keeper`, `skill`, `keshin`, `soul`, `mix max` |
+| GET | `/techniques/type/{type}` | By type: `kick`/`shoot`, `dribble`, `block`/`defense`, `catch`/`keeper`, `skill`, `keshin`, `totem`/`soul`, `mix max`, `awakening` |
 | GET | `/techniques/element/{element}` | By element (`?type=kick` to combine) |
 | GET | `/techniques/types` | Types with counts and accepted aliases |
 | GET | `/techniques/elements` | Elements |
@@ -120,6 +125,36 @@ InazumaElevenVR_API/
 | GET | `/formations` | All formations (`?details=true`) |
 | GET | `/formations/all` | Every formation with layout, offense/defense rating, description and positions |
 | GET | `/formations/{name}` | One formation: `4-4-2 diamond` or `diamond`. Positions are x/y % of the pitch (GK at the bottom) |
+
+### Equipment
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/items` | All item names (`?category=boots`, `?stat=agility`, `?details=true`) |
+| GET | `/items/all` | Every item with image, stat bonuses, effect and how to obtain |
+| GET | `/items/categories` | Categories with counts |
+| GET | `/items/category/{category}` | `boots`, `bracelet`, `pendant`, `special`, `kit` |
+| GET | `/items/stat/{stat}` | Items that boost a stat, best first (`/items/stat/power?category=boots`) |
+| GET | `/items/{name}` | One item |
+
+### Totems
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/totems` | All totems (`?type=kick&element=wind`, `?details=true`) |
+| GET | `/totems/all` | Every totem with image, GO Galaxy stats and Victory Road users |
+| GET | `/totems/{name}` | One totem |
+| GET | `/players/{name}/totems` | A player's totems (level, form) |
+
+Victory Road totem stats aren't published yet, so `Galaxy stats` are the Inazuma Eleven GO Galaxy values.
+
+### Coaches & staff
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/staff` | Every coach, manager and coordinator, with counts per role (`?game=IE`) |
+| GET | `/coaches` | Coaches (`?game=`) |
+| GET | `/managers` | Managers (`?game=`) |
+| GET | `/coordinators` | Coordinators (`?game=`) |
+
+They are also players: full card and stats at `/players/id/{ID}`; `/roles/{role}` lists names by role.
 
 ### Teams
 A team is a **team + game** pair: Alpine in *Inazuma Eleven 2* and Alpine in *Victory Road* are different teams with different players.
@@ -202,7 +237,7 @@ To manually refresh all player and team data:
 uv run python update.py
 ```
 
-This scrapes the official database, the wiki's data modules and the spreadsheet, matches everything together and writes `data/players.json`, `data/techniques.json`, `data/teams.json`, `data/keshins.json`, `data/tactics.json`, `data/formations.json` and `data/mixmax.json` (takes ~15 minutes, it waits between requests to be polite to the sources).
+This scrapes the official database, the wiki's data modules and the spreadsheet, matches everything together and writes `data/players.json`, `data/techniques.json`, `data/teams.json`, `data/keshins.json`, `data/tactics.json`, `data/formations.json`, `data/mixmax.json`, `data/items.json` and `data/totems.json` (takes ~15 minutes, it waits between requests to be polite to the sources).
 
 Data also updates automatically on the **1st of every month** via GitHub Actions.
 

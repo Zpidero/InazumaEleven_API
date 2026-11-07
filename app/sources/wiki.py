@@ -41,7 +41,7 @@ FORMS = {
 WAZA_TYPES = {
     "SH": "Shoot", "Shoot": "Shoot", "OF": "Dribble", "DF": "Block", "GK": "Catch",
     "SK": "Skill", "KH": "Keshin", "KA": "Keshin Armed", "KT": "Kizuna Trans",
-    "MM": "Mix Max", "SL": "Soul", "MC": "Macro Tactic", "AP": "Awakening Power", "PS": "Passive",
+    "MM": "Mix Max", "SL": "Totem", "MC": "Macro Tactic", "AP": "Awakening Power", "PS": "Passive",
 }
 
 
@@ -197,7 +197,57 @@ def plain(text):
     """Wiki markup → plain text: '[[Scramble]] AT +25%<br>x' → 'Scramble AT +25%\\nx'"""
     if text is None:
         return None
-    s = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", str(text))
+    s = re.sub(r"\{\{(?:tt|Stub)\|[^{}]*\}\}", "", str(text))                    # tooltips / notes
+    s = re.sub(r"\{\{Hover\|[^|{}]*\|([^{}]*)\}\}", r"\1", s)
+    s = re.sub(r"\[\[File:[^\]]*\]\]", "", s)
+    s = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", s)
     s = re.sub(r"<br\s*/?>", "\n", s)
     s = re.sub(r"<[^>]+>|'''|''", "", s)
     return s.strip() or None
+
+
+ITEM_SECTIONS = {"Shoes": "Boots", "Misanga": "Bracelet", "Pendant": "Pendant", "Special": "Special"}
+STAT_NAMES = {"Kick": "Power", "Power": "Power", "Control": "Control", "Technique": "Technique", "Pressure": "Pressure",
+              "Physical": "Physical", "Agility": "Agility", "Intelligence": "Intelligence"}
+
+
+OBTAIN_CODES = {"S": "Shop", "D": "Drop", "T": "Treasure chest", "B": "Bonus content"}
+
+
+def _obtain(text) -> list[str]:
+    """'[S] Chronicle Shop<br>[D] Raimon' → ['Shop: Chronicle Shop', 'Drop: Raimon']"""
+    out = []
+    for line in (plain(text) or "").split("\n"):
+        m = re.match(r"\[(\w)\]\s*(.*)", line.strip())
+        out.append(f"{OBTAIN_CODES.get(m.group(1), m.group(1))}: {m.group(2)}" if m else line.strip())
+    return [o for o in out if o and o != "-"]
+
+
+def load_items() -> list[dict]:
+    """Equipment from 'List of items in … Victory Road': English name, stat bonuses, price, how to get it."""
+    text = _api({"action": "parse", "page": "List of items in Inazuma Eleven Eiyuutachi no Victory Road",
+                 "prop": "wikitext"})["parse"]["wikitext"]
+    out = []
+    for m in re.finditer(r"^==\s*([^=]+?)\s*==\s*$", text, re.M):
+        cat = ITEM_SECTIONS.get(m.group(1))
+        if not cat:
+            continue
+        body = text[m.end():].split("\n==", 1)[0]
+        headers = [h.split("|")[-1].strip() for h in re.findall(r"^!(.*)$", body, re.M)]
+        for row in body.split("\n|-")[1:]:
+            cells = [c[1:].strip() for c in row.strip().split("\n") if c.startswith("|") and not c.startswith("|}")]
+            if len(cells) < len(headers):
+                continue
+            r = dict(zip(headers, cells))
+            effect = re.sub(r"\bKick\b", "Power", plain(r.get("Effect")) or "") or None   # VR calls Kick "Power"
+            stats = {STAT_NAMES[s]: int(v) for s, v in re.findall(r"(\w+)\s*\+(\d+)", effect or "") if s in STAT_NAMES}
+            out.append({
+                "Category": cat,
+                "Name": plain(r.get("Dub name")),
+                "Japanese name": plain(re.sub(r"<br>.*", "", r.get("Name", ""))),
+                "Stats": stats or None,
+                "Effect": effect,
+                "Price": plain(r.get("Price")) or None,
+                "How to obtain": _obtain(r.get("Acquirement")),
+            })
+    return [i for i in out if i["Name"] and i["Name"] != "???"]

@@ -204,3 +204,38 @@ def test_mixmax():
     assert any(a["Aura for"] for a in victor)          # Victor Blade is also an aura (Tsurugi Kyousuke)
     assert client.get("/mixmax/nope").status_code == 404
     assert client.get("/players/mark evans/power").status_code == 200   # route order still fine
+
+
+def test_items():
+    cats = client.get("/items/categories").json()["Categories"]
+    assert set(cats) >= {"Boots", "Bracelet", "Pendant", "Special", "Kit"}
+    boots = client.get("/items/category/shoes").json()
+    assert boots["Category"] == "Boots" and boots["Count"] > 100
+    raimon = client.get("/items/raimon boots").json()
+    assert raimon["Stats"] == {"Pressure": 4, "Agility": 6} and raimon["Image"].startswith("https://")
+    assert raimon["How to obtain"]
+    best = client.get("/items/stat/kick?category=boots").json()["Items"]       # kick = Power
+    assert best and best[0]["Stats"]["Power"] >= best[-1]["Stats"]["Power"]
+    assert client.get("/items/category/banana").status_code == 404
+    assert client.get("/items/stat/banana").status_code == 400
+    assert client.get("/items/no such item").status_code == 404
+
+
+def test_totems():
+    t = client.get("/totems").json()
+    assert t["Count"] > 30
+    pegasus = client.get("/totems/pegasus").json()
+    assert pegasus["Image"] and pegasus["Galaxy stats"]
+    assert any(u["Name"] == "Arion Sherwind" for u in pegasus["Users"])
+    assert client.get("/techniques/type/soul").json()["Type"] == "Totem"
+    assert any(x["Name"] == "Pegasus" for v in client.get("/players/arion sherwind/totems").json() for x in v["Totems"])
+    assert client.get("/totems/nope").status_code == 404
+
+
+def test_staff():
+    staff = client.get("/staff").json()
+    assert staff["Count"] > 100 and "Player" not in staff["Roles"]
+    coaches = client.get("/coaches").json()["Coaches"]
+    assert coaches and all("Coach" in c["Role"] for c in coaches)
+    assert any(m["Name"] == "Ray Dark" for m in client.get("/managers?game=IE").json()["Managers"])
+    assert client.get("/coordinators").json()["Count"] >= 50
