@@ -40,8 +40,8 @@ FORMS = {
 
 WAZA_TYPES = {
     "SH": "Shoot", "Shoot": "Shoot", "OF": "Dribble", "DF": "Block", "GK": "Catch",
-    "SK": "Skill", "KH": "Keshin", "KA": "Keshin Armed", "KT": "Keshin Totem",
-    "MM": "Mix Max", "SL": "Soul", "MC": "Macro Tactic", "AP": "Armed Power", "PS": "Passive",
+    "SK": "Skill", "KH": "Keshin", "KA": "Keshin Armed", "KT": "Kizuna Trans",
+    "MM": "Mix Max", "SL": "Soul", "MC": "Macro Tactic", "AP": "Awakening Power", "PS": "Passive",
 }
 
 
@@ -186,3 +186,18 @@ def image_urls(files: list[str]) -> dict:
                 title = norm.get(page["title"], page["title"])
                 out[title.removeprefix("File:").removesuffix(".png")] = info[0]["url"]
     return out
+
+
+def load_table(module: str, var: str) -> dict:
+    data = parse_module(fetch_module(f"Module:{module}"), var)
+    return {k: v for k, v in data.items() if isinstance(v, dict)}
+
+
+def plain(text):
+    """Wiki markup → plain text: '[[Scramble]] AT +25%<br>x' → 'Scramble AT +25%\\nx'"""
+    if text is None:
+        return None
+    s = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]*)\]\]", r"\1", str(text))
+    s = re.sub(r"<br\s*/?>", "\n", s)
+    s = re.sub(r"<[^>]+>|'''|''", "", s)
+    return s.strip() or None

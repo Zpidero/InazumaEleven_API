@@ -62,3 +62,22 @@ for k in keshins:
     for n in (k["Display name"], k["Wiki name"], k["Name"]):      # most specific last wins
         if n:
             keshin_by_name[n.casefold()] = k
+
+
+def _read_optional(name: str) -> list:
+    return _read(name) if (DATA / f"{name}.json").exists() else []
+
+
+tactics = _read_optional("tactics")
+formations = _read_optional("formations")
+mixmax = _read_optional("mixmax")
+
+# mix max aura → the Victory Road players who can mix max with it
+mixmax_users = defaultdict(list)
+for p in df_players.itertuples(index=False):
+    for m in p.Techniques or []:
+        if m["Type"] == "Mix Max":
+            mixmax_users[m["Name"].casefold()].append({
+                "ID": None if pd.isna(p.ID) else int(p.ID), "Name": p.Name, "Game": p.Game,
+                "Level": m["Level"], "Form": m["Form"], "Awakened": m["Awakened"],
+            })

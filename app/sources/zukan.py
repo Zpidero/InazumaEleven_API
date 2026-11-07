@@ -172,3 +172,18 @@ def scrape_emblems() -> dict:
             if img and img.get("src", "").startswith("https://dxi4wb638ujep.cloudfront.net/1/k"):
                 emblems[img["alt"].strip()] = img["src"].strip()
     return emblems
+
+
+def scrape_formations() -> list[dict]:
+    """Official formations: name and the 11 positions on the pitch (x/y in %, GK at the bottom)."""
+    out = []
+    for li in _get(f"{BASE}/soccer_formation/").select("ul.formationList > li"):
+        name = _text(li.select_one("dt"))
+        spots = []
+        for w in li.select(".position-marker-wrapper"):
+            m = re.search(r"left:\s*([\d.]+)%;\s*top:\s*([\d.]+)%", w.get("style", ""))
+            if m:
+                spots.append({"x": round(float(m.group(1)), 1), "y": round(float(m.group(2)), 1)})
+        if name and spots:
+            out.append({"Name": name, "Positions": spots})
+    return out

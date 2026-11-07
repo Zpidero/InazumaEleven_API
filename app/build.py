@@ -210,6 +210,89 @@ def build_keshins(raw, wiki_tech, name_of, images):
     return sorted(out, key=lambda k: k["Name"].casefold())
 
 
+TACTIC_TYPES = {"OF": "Offense", "DF": "Defense", "OFDF": "Offense / Defense"}
+
+
+def _vr(v):
+    """Pick the Victory Road value of a {game: value} table (or the value itself)."""
+    return v.get("VR") if isinstance(v, dict) else v
+
+
+def _num(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def build_tactics(raw, images):
+    """Victory Road tactics (team special moves)."""
+    out = []
+    for k in raw.values():
+        if "VR" not in json.dumps(k):
+            continue
+        out.append({
+            "Name": k.get("name") or k["page"],
+            "Type": TACTIC_TYPES.get(k.get("tType"), "Other"),
+            "Power": _num(_vr(k.get("power"))),
+            "Cost": _num(_vr(k.get("cost"))),
+            "Description": wiki.plain(_vr(k.get("description"))),
+            "Effect": wiki.plain(_vr(k.get("overall"))),
+            "Geoglyph effect": wiki.plain(_vr(k.get("geoglyph"))),
+            "Image": images.get(_vr(k.get("file"))),
+        })
+    return sorted(out, key=lambda t: t["Name"].casefold())
+
+
+def _formation_key(name):
+    key = re.sub(r"[^a-z]", "", name.casefold().split(" ", 1)[-1])       # '5-4-1 Double Volante' → 'doublevolante'
+    return {"balanced": "balance"}.get(key, key)
+
+
+def build_formations(official, raw):
+    """Official formations (zukan, with pitch positions) + wiki description and offense/defense rating."""
+    wiki_vr = {}
+    for k in raw.values():
+        if "VR" in json.dumps(k.get("file")):
+            wiki_vr[_formation_key("x " + (k.get("name") or k["page"].split(" (")[0]))] = k
+    out = []
+    for f in official:
+        w = wiki_vr.get(_formation_key(f["Name"]), {})
+        layout = f["Name"].split(" ", 1)[0]
+        df, mf, fw = (int(x) for x in layout.split("-")) if re.fullmatch(r"\d-\d-\d", layout) else (None, None, None)
+        out.append({
+            "Name": f["Name"],
+            "Layout": layout,
+            "Style": f["Name"].split(" ", 1)[-1],
+            "Defenders": df, "Midfielders": mf, "Forwards": fw,
+            "Offense": _num(_vr(w.get("OF"))),
+            "Defense": _num(_vr(w.get("DF"))),
+            "Description": wiki.plain(_vr(w.get("description"))),
+            "Positions": f["Positions"],
+        })
+    return out
+
+
+def build_mixmax(players, wiki_tech, name_of, redirects):
+    """Mix Max auras used in Victory Road. When the aura is a playable character, link that player."""
+    by_name = defaultdict(list)
+    for p in players:
+        by_name[p["Name"].casefold()].append(p)
+    used = {m["Name"] for p in players for m in p["Techniques"] if m["Type"] == "Mix Max"}
+    out = []
+    for key, w in wiki_tech.items():
+        name = name_of.get(key, w["page"])
+        if w["type"] != "Mix Max" or name not in used:
+            continue
+        names = {n.casefold() for n in redirects.get(w["page"], {w["page"]})} | {name.casefold()}
+        chars = [p for n in names for p in by_name.get(n, [])]
+        out.append({
+            "Aura": name, "Wiki name": w["page"], "Element": w["element"],
+            "Aura player": [{"ID": p["ID"], "Name": p["Name"], "Game": p["Game"]} for p in chars] or None,
+        })
+    return sorted(out, key=lambda m: m["Aura"].casefold())
+
+
 def build_teams(players, emblems):
     alias = {
         "Raimon First Squad": "Revolutionary Raimon", "Baseball Club Team": "South Cirrus Baseball Club",
@@ -257,10 +340,19 @@ def run():
     raw_keshins = wiki.load_keshins()
     keshins = build_keshins(raw_keshins, wiki_tech, name_of, wiki.image_urls([k.get("file") for k in raw_keshins.values()]))
 
+    print("⚡ tactics, formations, mix max")
+    raw_tactics = wiki.load_table("TacticsData", "TACTICS")
+    tactics = build_tactics(raw_tactics, wiki.image_urls([_vr(t.get("file")) for t in raw_tactics.values()]))
+    formations = build_formations(zukan.scrape_formations(), wiki.load_table("FormationData", "FORMATION"))
+    mm_pages = sorted({w["page"] for w in wiki_tech.values() if w["type"] == "Mix Max" and w["page"]})
+    mixmax = build_mixmax(players, wiki_tech, name_of, wiki.redirects(mm_pages))
+
     DATA.mkdir(exist_ok=True)
-    for name, obj in [("players", players), ("techniques", techniques), ("teams", teams), ("keshins", keshins)]:
+    for name, obj in [("players", players), ("techniques", techniques), ("teams", teams), ("keshins", keshins),
+                      ("tactics", tactics), ("formations", formations), ("mixmax", mixmax)]:
         (DATA / f"{name}.json").write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")))
     with_moves = sum(1 for p in players if p["Techniques"])
-    print(f"\n💾 {len(players)} players ({with_moves} with techniques), {len(techniques)} techniques, {len(teams)} teams, {len(keshins)} keshins")
+    print(f"\n💾 {len(players)} players ({with_moves} with techniques), {len(techniques)} techniques, {len(teams)} teams, {len(keshins)} keshins, "
+          f"{len(tactics)} tactics, {len(formations)} formations, {len(mixmax)} mix max auras")
     print(f"   wiki movesets without an English match: {len(unmatched)}")
-    return players, techniques, teams, keshins
+    return players, techniques, teams, keshins, tactics, formations, mixmax

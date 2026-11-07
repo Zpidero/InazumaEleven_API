@@ -175,3 +175,32 @@ def test_keshin_getters():
         assert p["Keshin"] is None or p["Keshin"] in names, (p["Name"], p["Keshin"])
     arion = client.get("/players/arion sherwind/keshin").json()
     assert arion[0]["Keshin"]["Name"] == "Majin Pegasus Arc"
+
+
+def test_tactics_and_formations():
+    t = client.get("/tactics").json()
+    assert t["Count"] > 50
+    one = client.get(f"/tactics/{t['Tactics'][0].lower()}").json()
+    assert one["Description"] and one["Image"].startswith("https://")
+    off = client.get("/tactics/type/attack").json()
+    assert off["Type"] == "Offense" and all(x["Type"] == "Offense" for x in off["Tactics"])
+    assert client.get("/tactics/nope").status_code == 404
+    f = client.get("/formations").json()
+    assert f["Count"] >= 8
+    d = client.get("/formations/diamond").json()
+    assert d == client.get("/formations/4-4-2 diamond").json()
+    assert d["Layout"] == "4-4-2" and len(d["Positions"]) == 11 and d["Description"]
+    assert d["Defenders"] + d["Midfielders"] + d["Forwards"] == 10
+
+
+def test_mixmax():
+    names = client.get("/mixmax").json()["Auras"]
+    assert len(names) >= 15
+    okita = client.get("/mixmax/okita souji").json()
+    assert okita["Aura player"] and any(u["Name"] == "Victor Blade" for u in okita["Users"])
+    assert client.get(f"/mixmax/{okita['Aura player'][0]['Name']}").json()["Aura"] == okita["Aura"]
+    victor = client.get("/players/victor blade/mixmax").json()
+    assert any(m["Name"] == "Okita Souji" for v in victor for m in v["Mix Max"])
+    assert any(a["Aura for"] for a in victor)          # Victor Blade is also an aura (Tsurugi Kyousuke)
+    assert client.get("/mixmax/nope").status_code == 404
+    assert client.get("/players/mark evans/power").status_code == 200   # route order still fine
