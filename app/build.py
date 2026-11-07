@@ -93,8 +93,10 @@ def match_wiki(players, wiki_players, redirects):
     return claimed, unmatched
 
 
-def build_techniques(wiki_tech, used_keys, skills, tech_redirects):
-    """One record per technique used in Victory Road, named in English when zukan has it."""
+def build_techniques(wiki_tech, used_keys, skills, tech_redirects, dub=None):
+    """One record per technique used in Victory Road, named in English: the zukan name when zukan lists
+    the move, otherwise the official English (dub) name from the wiki."""
+    dub = dub or {}
     by_name = {s["Name"].casefold(): s for s in skills}
 
     # Pick the English (zukan) name for each wiki technique. Several wiki techniques can reach
@@ -106,7 +108,9 @@ def build_techniques(wiki_tech, used_keys, skills, tech_redirects):
         if not w:
             continue
         page = w["page"] or key
-        for prio, n in [(0, page)] + [(1, r) for r in sorted(tech_redirects.get(page, [])) if r != page]:
+        cands = [(0, page)] + [(1, r) for r in sorted(tech_redirects.get(page, [])) if r != page]
+        cands += [(2, dub[page])] if page in dub else []
+        for prio, n in cands:
             if n.casefold() in by_name:
                 wanted[key] = n.casefold()
                 if n.casefold() not in claim or (prio, key) < claim[n.casefold()]:
@@ -121,7 +125,7 @@ def build_techniques(wiki_tech, used_keys, skills, tech_redirects):
         page = w["page"] or key
         en = wanted.get(key)
         z = by_name[en] if en and claim[en][1] == key else None
-        name = z["Name"] if z else page
+        name = z["Name"] if z else dub.get(page, page)
         out.append({
             "_key": key, "_plain": bool(z),
             "Name": name,
@@ -174,6 +178,24 @@ def _humanize(key):
     return re.sub(r"(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z])", " ", str(key)).strip()
 
 
+def _romaji_title(s):
+    """'Hi No Otakebi' → 'Hi no Otakebi' (how the wiki titles Japanese names)."""
+    return re.sub(r"(?<=\s)(No|Ni|Wo|Wa|To|Ga|De|Na)(?=\s)", lambda m: m.group(1).lower(), s)
+
+
+def keshin_skill_titles(raw_keshins):
+    keys = {re.sub(r"_[FM]$", "", str(v)) for k in raw_keshins.values() for v in _values(k.get("skill")) if v}
+    return {t for key in keys for t in (_humanize(key), _romaji_title(_humanize(key)))}
+
+
+def strike_titles(raw_souls):
+    return {_humanize(s["strike"]) for s in raw_souls.values() if s.get("strike")}
+
+
+def _values(v):
+    return list(v.values()) if isinstance(v, dict) else [v]
+
+
 def _per_game(v, conv=lambda x: x):
     """Single value, or {game: value} when it changes between games; 'N/A' → None."""
     if isinstance(v, dict):
@@ -181,28 +203,33 @@ def _per_game(v, conv=lambda x: x):
     return None if v in (None, "N/A", "") else conv(v)
 
 
-def build_keshins(raw, wiki_tech, name_of, images):
+def build_keshins(raw, wiki_tech, name_of, images, dub=None):
     """Every keshin (GO, Chrono Stone, Galaxy, Victory Road) with its stats per game."""
     by_page = {}
     for key, w in wiki_tech.items():
         if w["type"] == "Keshin" and w["page"]:
             by_page.setdefault(w["page"], key)
 
+    dub = dub or {}
+
     def tech(k):
-        return name_of.get(k) or wiki_tech.get(k, {}).get("page") or _humanize(k)
+        page = wiki_tech.get(k, {}).get("page")
+        return name_of.get(k) or dub.get(page) or page or _humanize(k)
+
+    def skill(k):
+        h = _humanize(re.sub(r"_[FM]$", "", str(k)))          # LoveCall_F / _M: same skill per gender
+        return dub.get(h) or dub.get(_romaji_title(h)) or h
 
     out = []
     for key, k in raw.items():
         waza_key = by_page.get(k["page"])
         out.append({
-            "Name": name_of.get(waza_key) or k["page"],       # same name players' "Keshin" field uses
+            "Name": name_of.get(waza_key) or dub.get(k["page"]) or k["page"],   # same name as players' "Keshin"
             "Wiki name": k["page"],
-            "Title": k.get("title"),
-            "Display name": k.get("display"),
             "Type": wiki.WAZA_TYPES.get(k.get("kType"), k.get("kType")),
             "Element": _per_game(k.get("element")),
-            "Hissatsu": _per_game(k.get("hissatsu"), tech),
-            "Skill": _per_game(k.get("skill"), _humanize),
+            "Special move": _per_game(k.get("hissatsu"), tech),
+            "Skill": _per_game(k.get("skill"), skill),
             "KP": _per_game(k.get("KP")),
             "Attack": _per_game(k.get("attack")),
             "Image": images.get(k.get("file")),
@@ -225,14 +252,14 @@ def _num(v):
         return None
 
 
-def build_tactics(raw, images):
+def build_tactics(raw, images, dub=None):
     """Victory Road tactics (team special moves)."""
     out = []
     for k in raw.values():
         if "VR" not in json.dumps(k):
             continue
         out.append({
-            "Name": k.get("name") or k["page"],
+            "Name": (dub or {}).get(k["page"]) or k.get("name") or k["page"],
             "Type": TACTIC_TYPES.get(k.get("tType"), "Other"),
             "Power": _num(_vr(k.get("power"))),
             "Cost": _num(_vr(k.get("cost"))),
@@ -293,10 +320,15 @@ def build_mixmax(players, wiki_tech, name_of, redirects):
     return sorted(out, key=lambda m: m["Aura"].casefold())
 
 
-def build_totems(raw_souls, wiki_tech, name_of, images, redirects):
+def build_totems(raw_souls, wiki_tech, name_of, images, redirects, dub=None):
     """Totems (called Souls in Japanese / on the wiki) used in Victory Road movesets.
     Stats come from the wiki's SoulData (Inazuma Eleven GO Galaxy); Victory Road values aren't published."""
     by_page = {s["page"]: s for s in raw_souls.values()}
+    dub = dub or {}
+
+    def strike(k):
+        page = wiki_tech.get(k, {}).get("page")
+        return name_of.get(k) or dub.get(page) or dub.get(_humanize(k)) or page or _humanize(k)
     out = []
     for key, w in wiki_tech.items():
         if w["type"] != "Totem" or key not in name_of:
@@ -308,7 +340,7 @@ def build_totems(raw_souls, wiki_tech, name_of, images, redirects):
             "Type": wiki.WAZA_TYPES.get(s.get("sType"), s.get("sType")), "Element": w["element"] or s.get("element"),
             "Image": images.get(s.get("file")),
             "Galaxy stats": {"Power": s.get("power"), "Cost": s.get("cost"), "Damage": s.get("damage"),
-                             "SP": s.get("SP"), "Strike": _humanize(s["strike"]) if s.get("strike") else None} if s else None,
+                             "SP": s.get("SP"), "Strike": strike(s["strike"]) if s.get("strike") else None} if s else None,
         })
     return sorted(out, key=lambda t: t["Name"].casefold())
 
@@ -325,12 +357,11 @@ def build_items(official, wiki_items):
         w = extra.get(k, {})
         out.append({"Name": o["Name"], "Category": o["Category"], "Image": o["Image"],
                     "Stats": w.get("Stats"), "Effect": w.get("Effect"), "Price": w.get("Price"),
-                    "How to obtain": w.get("How to obtain"), "Japanese name": w.get("Japanese name")})
+                    "How to obtain": w.get("How to obtain")})
     for k, w in extra.items():                      # in the wiki but not (yet) in the official list
         if k not in seen:
             out.append({"Name": w["Name"], "Category": w["Category"], "Image": None, "Stats": w["Stats"],
-                        "Effect": w["Effect"], "Price": w["Price"], "How to obtain": w["How to obtain"],
-                        "Japanese name": w["Japanese name"]})
+                        "Effect": w["Effect"], "Price": w["Price"], "How to obtain": w["How to obtain"]})
     return out
 
 
@@ -363,7 +394,13 @@ def run():
     used = {m["waza"] for w in wiki_players for m in w["moves"]} | {w["keshin"] for w in wiki_players if w["keshin"]}
     tech_red = wiki.redirects(sorted({wiki_tech[k]["page"] for k in used if k in wiki_tech and wiki_tech[k]["page"]}))
 
-    techniques, name_of = build_techniques(wiki_tech, used, skills, tech_red)
+    raw_keshins = wiki.load_keshins()
+    souls = wiki.load_table("SoulData", "SOULS")
+    raw_tactics = wiki.load_table("TacticsData", "TACTICS")
+    dub = wiki.dub_names(sorted({w["page"] for w in wiki_tech.values() if w["page"]}
+                                | {k["page"] for k in raw_keshins.values()} | {t["page"] for t in raw_tactics.values()}
+                                | keshin_skill_titles(raw_keshins) | strike_titles(souls)))
+    techniques, name_of = build_techniques(wiki_tech, used, skills, tech_red, dub)
     claimed, unmatched = match_wiki(players, wiki_players, player_red)
     for i, w in claimed.items():
         players[i]["Techniques"] = [
@@ -378,21 +415,18 @@ def run():
     teams = build_teams(players, emblems)
 
     print("⚡ wiki: keshins")
-    raw_keshins = wiki.load_keshins()
-    keshins = build_keshins(raw_keshins, wiki_tech, name_of, wiki.image_urls([k.get("file") for k in raw_keshins.values()]))
+    keshins = build_keshins(raw_keshins, wiki_tech, name_of, wiki.image_urls([k.get("file") for k in raw_keshins.values()]), dub)
 
     print("⚡ tactics, formations, mix max")
-    raw_tactics = wiki.load_table("TacticsData", "TACTICS")
-    tactics = build_tactics(raw_tactics, wiki.image_urls([_vr(t.get("file")) for t in raw_tactics.values()]))
+    tactics = build_tactics(raw_tactics, wiki.image_urls([_vr(t.get("file")) for t in raw_tactics.values()]), dub)
     formations = build_formations(zukan.scrape_formations(), wiki.load_table("FormationData", "FORMATION"))
     mm_pages = sorted({w["page"] for w in wiki_tech.values() if w["type"] == "Mix Max" and w["page"]})
     mixmax = build_mixmax(players, wiki_tech, name_of, wiki.redirects(mm_pages))
 
     print("⚡ totems")
-    souls = wiki.load_table("SoulData", "SOULS")
     soul_pages = sorted({w["page"] for w in wiki_tech.values() if w["type"] == "Totem" and w["page"]})
     totems = build_totems(souls, wiki_tech, name_of, wiki.image_urls([s.get("file") for s in souls.values()]),
-                          wiki.redirects(soul_pages))
+                          wiki.redirects(soul_pages), dub)
 
     print("⚡ items")
     items = build_items(zukan.scrape_items(), wiki.load_items())

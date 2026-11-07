@@ -3,6 +3,7 @@ https://inazuma-eleven.fandom.com — data modules Module:PlayerData/<game> and 
 
 The wiki uses Japanese (romanised) names as page titles; English names are found through the
 wiki's redirects (e.g. "Mark Evans" → "Endou Mamoru", "The Hand" → "God Hand" …)."""
+from collections import defaultdict
 import re
 import time
 
@@ -244,10 +245,48 @@ def load_items() -> list[dict]:
             out.append({
                 "Category": cat,
                 "Name": plain(r.get("Dub name")),
-                "Japanese name": plain(re.sub(r"<br>.*", "", r.get("Name", ""))),
                 "Stats": stats or None,
                 "Effect": effect,
                 "Price": plain(r.get("Price")) or None,
                 "How to obtain": _obtain(r.get("Acquirement")),
             })
     return [i for i in out if i["Name"] and i["Name"] != "???"]
+
+
+def _dub(wikitext: str):
+    """English (dub) name from an infobox: prefer the Victory Road one, then the games one, then the first."""
+    m = re.search(r"\|\s*name_dub\s*=(.*?)(?=\n\s*\|\s*\w+\s*=|\n\}\})", wikitext, re.S)
+    if not m:
+        return None
+    entries = [e.strip() for e in re.split(r"\*|<br\s*/?>", m.group(1)) if e.strip()]
+    entries = [e for e in entries if e not in ("-", "N/A", "?")]
+    if not entries:
+        return None
+    pick = next((e for e in entries if "Victory Road" in e), None) \
+        or next((e for e in entries if re.search(r"\(.*\bgames?\b.*\)", e)), None) or entries[0]
+    name = plain(re.sub(r"\s*\([^()]*\)\s*$", "", pick))
+    return name if name and not re.search(r"[{}|\[\]]", name) else None
+
+
+def dub_names(titles: list[str]) -> dict:
+    """wiki page title → official English name (only for pages that have one)."""
+    out = {}
+    todo = sorted({t for t in titles if t})
+    for i in range(0, len(todo), 50):
+        batch = todo[i:i + 50]
+        q = _api({"action": "query", "titles": "|".join(batch), "prop": "revisions", "rvprop": "content",
+                  "rvslots": "main", "redirects": "1"}).get("query", {})
+        norm = {n["to"]: n["from"] for n in q.get("normalized", [])}
+        sources = defaultdict(list)
+        for r in q.get("redirects", []):
+            sources[r["to"]].append(norm.get(r["from"], r["from"]))
+        for page in q.get("pages", []):
+            revs = page.get("revisions")
+            if not revs:
+                continue
+            name = _dub(revs[0]["slots"]["main"]["content"])
+            if name:
+                for t in sources.get(page["title"], []) + [norm.get(page["title"], page["title"])]:
+                    out[t] = name
+        print(f"  wiki English names {min(i + 50, len(todo))}/{len(todo)}")
+    return out

@@ -38,7 +38,7 @@ def _filter(type: Optional[str] = None, element: Optional[str] = None):
 
 @router.get("")
 def list_techniques(type: Optional[str] = None, element: Optional[str] = None, details: bool = False):
-    """All special moves (hissatsu). Filters: ?type=kick&element=fire · ?details=true for full records."""
+    """All special moves. Filters: ?type=kick&element=fire · ?details=true for full records."""
     items = _filter(type, element)
     return {"Count": len(items), "Techniques": items if details else [t["Name"] for t in items]}
 

@@ -154,9 +154,9 @@ def test_games_and_game_filter():
 def test_keshin_getters():
     listing = client.get("/keshins").json()
     assert listing["Count"] >= 90 and len(set(listing["Keshins"])) == listing["Count"]
-    k = client.get("/keshins/pegasus arc").json()                  # by display name
-    assert k == client.get("/keshins/majin pegasus arc").json()     # or full name
-    assert k["Type"] == "Shoot" and k["Hissatsu"] and k["Image"].startswith("https://")
+    k = client.get("/keshins/heavenly horse arch pegasus").json()  # official English name
+    assert k == client.get("/keshins/majin pegasus arc").json()     # or the wiki (romaji) title
+    assert k["Type"] == "Shoot" and k["Special move"] and k["Image"].startswith("https://")
     assert any(u["Name"] == "Arion Sherwind" for u in k["Users"]) and k["In Victory Road"]
     full = client.get("/keshins/all").json()
     assert len(full) == listing["Count"] and "Users" in full[0]
@@ -174,7 +174,7 @@ def test_keshin_getters():
     for p in client.get("/all").json():
         assert p["Keshin"] is None or p["Keshin"] in names, (p["Name"], p["Keshin"])
     arion = client.get("/players/arion sherwind/keshin").json()
-    assert arion[0]["Keshin"]["Name"] == "Majin Pegasus Arc"
+    assert arion[0]["Keshin"]["Name"] == "Heavenly Horse Arch Pegasus"
 
 
 def test_tactics_and_formations():
@@ -196,12 +196,13 @@ def test_tactics_and_formations():
 def test_mixmax():
     names = client.get("/mixmax").json()["Auras"]
     assert len(names) >= 15
-    okita = client.get("/mixmax/okita souji").json()
+    okita = client.get("/mixmax/soji okita").json()
+    assert okita == client.get("/mixmax/okita souji").json()       # wiki title works too
     assert okita["Aura player"] and any(u["Name"] == "Victor Blade" for u in okita["Users"])
     assert client.get(f"/mixmax/{okita['Aura player'][0]['Name']}").json()["Aura"] == okita["Aura"]
     victor = client.get("/players/victor blade/mixmax").json()
-    assert any(m["Name"] == "Okita Souji" for v in victor for m in v["Mix Max"])
-    assert any(a["Aura for"] for a in victor)          # Victor Blade is also an aura (Tsurugi Kyousuke)
+    assert any(m["Name"] == "Soji Okita" for v in victor for m in v["Mix Max"])
+    assert any(a["Aura for"] for a in victor)          # Victor Blade is also an aura himself
     assert client.get("/mixmax/nope").status_code == 404
     assert client.get("/players/mark evans/power").status_code == 200   # route order still fine
 
@@ -239,3 +240,14 @@ def test_staff():
     assert coaches and all("Coach" in c["Role"] for c in coaches)
     assert any(m["Name"] == "Ray Dark" for m in client.get("/managers?game=IE").json()["Managers"])
     assert client.get("/coordinators").json()["Count"] >= 50
+
+
+def test_names_are_english():
+    """No romaji leftovers in the main names (the wiki title stays available as "Wiki name")."""
+    romaji = {"Majin Pegasus Arc", "Keeper Konjou", "Kuroi Bara", "Okita Souji", "Ookami", "Nekketsu Overdrive"}
+    names = {t["Name"] for t in client.get("/techniques/all").json()}
+    names |= {k["Name"] for k in client.get("/keshins/all").json()}
+    names |= {m["Aura"] for m in client.get("/mixmax/all").json()}
+    names |= {t["Name"] for t in client.get("/totems/all").json()}
+    assert not names & romaji
+    assert "Keeper's Grit" in names and "Wolf" in names

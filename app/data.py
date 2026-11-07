@@ -59,7 +59,7 @@ for p in df_players.itertuples(index=False):
         })
 keshin_by_name = {}
 for k in keshins:
-    for n in (k["Display name"], k["Wiki name"], k["Name"]):      # most specific last wins
+    for n in (k["Wiki name"], k["Name"]):                       # English name, or the wiki (romaji) title
         if n:
             keshin_by_name[n.casefold()] = k
 
