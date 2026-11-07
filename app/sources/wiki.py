@@ -162,3 +162,27 @@ def redirects(titles: list[str]) -> dict:
             params = {**params, **data["continue"]}
         print(f"  wiki redirects {min(i + 50, len(todo))}/{len(todo)}")
     return names
+
+
+def load_keshins() -> dict:
+    """KeshinData key → raw record (page, title, display, kType, element, hissatsu, skill, KP, attack).
+    element / hissatsu / skill can be a single value or a {game: value} table."""
+    data = parse_module(fetch_module("Module:KeshinData"), "KESHIN")
+    return {k: v for k, v in data.items() if isinstance(v, dict) and v.get("page")}
+
+
+def image_urls(files: list[str]) -> dict:
+    """'Taiyou Shin Apollo icon' → direct image URL (tries .png)."""
+    out = {}
+    todo = sorted({f for f in files if f})
+    for i in range(0, len(todo), 50):
+        batch = todo[i:i + 50]
+        q = _api({"action": "query", "titles": "|".join(f"File:{f}.png" for f in batch),
+                  "prop": "imageinfo", "iiprop": "url"}).get("query", {})
+        norm = {n["to"]: n["from"] for n in q.get("normalized", [])}
+        for page in q.get("pages", []):
+            info = page.get("imageinfo")
+            if info:
+                title = norm.get(page["title"], page["title"])
+                out[title.removeprefix("File:").removesuffix(".png")] = info[0]["url"]
+    return out

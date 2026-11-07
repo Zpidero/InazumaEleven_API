@@ -149,3 +149,29 @@ def test_games_and_game_filter():
     assert len(versions) > 1
     only_ie = client.get("/players/mark evans?game=IE").json()
     assert all(p["Game code"] == "IE" for p in only_ie)
+
+
+def test_keshin_getters():
+    listing = client.get("/keshins").json()
+    assert listing["Count"] >= 90 and len(set(listing["Keshins"])) == listing["Count"]
+    k = client.get("/keshins/pegasus arc").json()                  # by display name
+    assert k == client.get("/keshins/majin pegasus arc").json()     # or full name
+    assert k["Type"] == "Shoot" and k["Hissatsu"] and k["Image"].startswith("https://")
+    assert any(u["Name"] == "Arion Sherwind" for u in k["Users"]) and k["In Victory Road"]
+    full = client.get("/keshins/all").json()
+    assert len(full) == listing["Count"] and "Users" in full[0]
+    kicks = client.get("/keshins/type/kick").json()
+    assert kicks["Type"] == "Shoot" and all(x["Type"] == "Shoot" for x in kicks["Keshins"])
+    assert client.get("/keshins/type/keeper").json()["Type"] == "Catch"
+    vr = client.get("/keshins/game/vr").json()
+    assert vr["Count"] and all(x["Users"] for x in vr["Keshins"])
+    assert client.get("/keshins/game/go").json()["Count"]
+    assert client.get("/keshins/game/ares").status_code == 400
+    assert client.get("/keshins/element/fire").json()["Count"]
+    assert client.get("/keshins/nope").status_code == 404
+    # every keshin a player summons has a keshin record
+    names = {x["Name"] for x in full}
+    for p in client.get("/all").json():
+        assert p["Keshin"] is None or p["Keshin"] in names, (p["Name"], p["Keshin"])
+    arion = client.get("/players/arion sherwind/keshin").json()
+    assert arion[0]["Keshin"]["Name"] == "Majin Pegasus Arc"

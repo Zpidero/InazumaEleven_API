@@ -4,6 +4,7 @@
   3. community sheet (optional)  — archetype and Legendary-rarity stats
 """
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -168,6 +169,47 @@ def build_techniques(wiki_tech, used_keys, skills, tech_redirects):
     return sorted(out, key=lambda t: t["Name"].casefold()), name_of
 
 
+def _humanize(key):
+    """'LuckyForce5' → 'Lucky Force 5'"""
+    return re.sub(r"(?<=[a-z])(?=[A-Z0-9])|(?<=[0-9])(?=[A-Z])", " ", str(key)).strip()
+
+
+def _per_game(v, conv=lambda x: x):
+    """Single value, or {game: value} when it changes between games; 'N/A' → None."""
+    if isinstance(v, dict):
+        return {g: conv(x) for g, x in v.items() if not g.startswith("_") and x not in (None, "N/A")} or None
+    return None if v in (None, "N/A", "") else conv(v)
+
+
+def build_keshins(raw, wiki_tech, name_of, images):
+    """Every keshin (GO, Chrono Stone, Galaxy, Victory Road) with its stats per game."""
+    by_page = {}
+    for key, w in wiki_tech.items():
+        if w["type"] == "Keshin" and w["page"]:
+            by_page.setdefault(w["page"], key)
+
+    def tech(k):
+        return name_of.get(k) or wiki_tech.get(k, {}).get("page") or _humanize(k)
+
+    out = []
+    for key, k in raw.items():
+        waza_key = by_page.get(k["page"])
+        out.append({
+            "Name": name_of.get(waza_key) or k["page"],       # same name players' "Keshin" field uses
+            "Wiki name": k["page"],
+            "Title": k.get("title"),
+            "Display name": k.get("display"),
+            "Type": wiki.WAZA_TYPES.get(k.get("kType"), k.get("kType")),
+            "Element": _per_game(k.get("element")),
+            "Hissatsu": _per_game(k.get("hissatsu"), tech),
+            "Skill": _per_game(k.get("skill"), _humanize),
+            "KP": _per_game(k.get("KP")),
+            "Attack": _per_game(k.get("attack")),
+            "Image": images.get(k.get("file")),
+        })
+    return sorted(out, key=lambda k: k["Name"].casefold())
+
+
 def build_teams(players, emblems):
     alias = {
         "Raimon First Squad": "Revolutionary Raimon", "Baseball Club Team": "South Cirrus Baseball Club",
@@ -206,14 +248,19 @@ def run():
              "Form": m["form"], "Awakened": m["awakened"]}
             for m in w["moves"]
         ]
-        players[i]["Keshin"] = name_of.get(w["keshin"], w["keshin"]) if w["keshin"] else None
+        is_keshin = wiki_tech.get(w["keshin"], {}).get("type") == "Keshin"     # the wiki sometimes lists a normal move
+        players[i]["Keshin"] = name_of.get(w["keshin"], w["keshin"]) if w["keshin"] and is_keshin else None
 
     teams = build_teams(players, emblems)
 
+    print("⚡ wiki: keshins")
+    raw_keshins = wiki.load_keshins()
+    keshins = build_keshins(raw_keshins, wiki_tech, name_of, wiki.image_urls([k.get("file") for k in raw_keshins.values()]))
+
     DATA.mkdir(exist_ok=True)
-    for name, obj in [("players", players), ("techniques", techniques), ("teams", teams)]:
+    for name, obj in [("players", players), ("techniques", techniques), ("teams", teams), ("keshins", keshins)]:
         (DATA / f"{name}.json").write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")))
     with_moves = sum(1 for p in players if p["Techniques"])
-    print(f"\n💾 {len(players)} players ({with_moves} with techniques), {len(techniques)} techniques, {len(teams)} teams")
+    print(f"\n💾 {len(players)} players ({with_moves} with techniques), {len(techniques)} techniques, {len(teams)} teams, {len(keshins)} keshins")
     print(f"   wiki movesets without an English match: {len(unmatched)}")
-    return players, techniques, teams
+    return players, techniques, teams, keshins

@@ -47,3 +47,18 @@ for p in df_players.itertuples(index=False):
             "ID": None if pd.isna(p.ID) else int(p.ID), "Name": p.Name, "Game": p.Game,
             "Level": m["Level"], "Form": m["Form"], "Awakened": m["Awakened"],
         })
+
+# keshins (GO → Victory Road) and the Victory Road players who summon each one
+keshins = _read("keshins") if (DATA / "keshins.json").exists() else []
+keshin_users = defaultdict(list)
+for p in df_players.itertuples(index=False):
+    if isinstance(p.Keshin, str) and p.Keshin:
+        keshin_users[p.Keshin.casefold()].append({
+            "ID": None if pd.isna(p.ID) else int(p.ID), "Name": p.Name, "Game": p.Game,
+            "Position": p.Position, "Element": p.Element,
+        })
+keshin_by_name = {}
+for k in keshins:
+    for n in (k["Display name"], k["Wiki name"], k["Name"]):      # most specific last wins
+        if n:
+            keshin_by_name[n.casefold()] = k

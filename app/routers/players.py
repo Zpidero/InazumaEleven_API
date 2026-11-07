@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.games import GAMES, resolve
 
-from app.data import df_players, STAT_COLUMNS
+from app.data import df_players, keshin_by_name, STAT_COLUMNS
 from app.routers.utils import clean_value, matches, records
 
 router = APIRouter(prefix="/players", tags=["players"])
@@ -86,6 +86,27 @@ def get_player_techniques_by_name(name: str, game: Optional[str] = None):
     return [{"ID": clean_value(r["ID"]), "Name": r["Name"], "Game": r["Game"], "Game code": r["Game code"],
              "Keshin": clean_value(r["Keshin"]), "Techniques": r["Techniques"] or []}
             for _, r in rows.iterrows()]
+
+
+def _keshin(name):
+    return keshin_by_name.get(name.casefold()) if isinstance(name, str) and name else None
+
+
+@router.get("/id/{player_id}/keshin/details")
+def get_player_keshin_by_id(player_id: int):
+    """The full keshin record of a player (type, element, hissatsu, KP/attack, image)."""
+    row = _by_id(player_id)
+    return {"ID": player_id, "Name": row["Name"], "Keshin": _keshin(row["Keshin"])}
+
+
+@router.get("/{name}/keshin")
+def get_player_keshin_by_name(name: str, game: Optional[str] = None):
+    """The keshin a player summons in Victory Road, with its full record. ?game= to pick a version."""
+    rows = _in_game(df_players[matches(df_players["Name"], name)], game)
+    if rows.empty:
+        raise HTTPException(status_code=404, detail=f"Player {name} not found")
+    return [{"ID": clean_value(r["ID"]), "Name": r["Name"], "Game": r["Game"], "Game code": r["Game code"],
+             "Keshin": _keshin(r["Keshin"])} for _, r in rows.iterrows()]
 
 
 @router.get("/{name}/{stat}")

@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import players, teams, filters, techniques
+from app.routers import players, teams, filters, techniques, keshins
 
 app = FastAPI(
     title="Inazuma Eleven VR API",
@@ -11,6 +11,7 @@ app.include_router(players.router)
 app.include_router(teams.router)
 app.include_router(filters.router)
 app.include_router(techniques.router)
+app.include_router(keshins.router)
 
 @app.get("/")
 def home():
