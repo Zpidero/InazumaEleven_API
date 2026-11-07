@@ -94,7 +94,7 @@ def _keshin(name):
 
 @router.get("/id/{player_id}/keshin/details")
 def get_player_keshin_by_id(player_id: int):
-    """The full keshin record of a player (type, element, hissatsu, KP/attack, image)."""
+    """The full keshin record of a player (type, element, special move, KP/attack, image)."""
     row = _by_id(player_id)
     return {"ID": player_id, "Name": row["Name"], "Keshin": _keshin(row["Keshin"])}
 
